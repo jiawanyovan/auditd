@@ -8,6 +8,7 @@
 # /etc/audit/audit.rules
 #
 # Compiled by Florian Roth
+# Adapted for Parrot Security OS with apparmor
 # 
 # Created  : 2017/12/05 
 # Modified : 2018/08/05
@@ -64,7 +65,7 @@
 ### We put these early because audit is a first match wins system.
 
 ## Ignore SELinux AVC records
--a always,exclude -F msgtype=AVC
+#-a always,exclude -F msgtype=AVC
 
 ## Ignore current working directory records
 -a always,exclude -F msgtype=CWD
@@ -72,7 +73,7 @@
 ## Ignore EOE records (End Of Event, not needed)
 -a always,exclude -F msgtype=EOE
 
-## Cron jobs fill the logs with stuff we normally don't want (works with SELinux)
+## Cron jobs fill the logs with stuff we normally don't want
 -a never,user -F subj_type=crond_t
 -a exit,never -F subj_type=crond_t
 
@@ -81,10 +82,6 @@
 
 ## This is not very interesting and wastes a lot of space if the server is public facing
 -a always,exclude -F msgtype=CRYPTO_KEY_USER
-
-## VMWare tools
--a exit,never -F arch=b32 -S fork -F success=0 -F path=/usr/lib/vmware-tools -F subj_type=initrc_t -F exit=-2
--a exit,never -F arch=b64 -S fork -F success=0 -F path=/usr/lib/vmware-tools -F subj_type=initrc_t -F exit=-2
 
 ### High Volume Event Filter (especially on Linux Workstations)
 -a exit,never -F arch=b32 -F dir=/dev/shm -k sharedmemaccess
@@ -106,6 +103,7 @@
 -a always,exit -F perm=x -F auid!=-1 -F path=/sbin/rmmod -k modules
 -a always,exit -F arch=b64 -S finit_module -S init_module -S delete_module -F auid!=-1 -k modules
 -a always,exit -F arch=b32 -S finit_module -S init_module -S delete_module -F auid!=-1 -k modules
+
 ## Modprobe configuration
 -w /etc/modprobe.conf -p wa -k modprobe
 
@@ -128,6 +126,7 @@
 ## Time
 -a exit,always -F arch=b32 -S adjtimex -S settimeofday -S clock_settime -k time
 -a exit,always -F arch=b64 -S adjtimex -S settimeofday -S clock_settime -k time
+
 ### Local time zone
 -w /etc/localtime -p wa -k localtime
 
@@ -177,11 +176,13 @@
 ### Changes to hostname
 -a always,exit -F arch=b32 -S sethostname -S setdomainname -k network_modifications
 -a always,exit -F arch=b64 -S sethostname -S setdomainname -k network_modifications
+
 ### Changes to other files
 -w /etc/hosts -p wa -k network_modifications
 -w /etc/sysconfig/network -p wa -k network_modifications
 -w /etc/network/ -p wa -k network
 -a always,exit -F dir=/etc/NetworkManager/ -F perm=wa -k network_modifications
+
 ### Changes to issue
 -w /etc/issue -p wa -k etcissue
 -w /etc/issue.net -p wa -k etcissue
@@ -294,7 +295,7 @@
 -w /usr/bin/socat -p x -k susp_activity
 -w /usr/bin/wireshark -p x -k susp_activity
 -w /usr/bin/rawshark -p x -k susp_activity
--w /usr/bin/rdesktop -p x -k sbin_susp
+-w /usr/bin/rdesktop -p x -k susp_activity
 
 ## Sbin suspicious activity
 -w /sbin/iptables -p x -k sbin_susp 
@@ -319,16 +320,6 @@
 -a always,exit -F dir=/home -F uid=0 -F auid>=1000 -F auid!=4294967295 -C auid!=obj_uid -k power_abuse
 
 # Software Management ---------------------------------------------------------
-
-# RPM (Redhat/CentOS)
--w /usr/bin/rpm -p x -k software_mgmt
--w /usr/bin/yum -p x -k software_mgmt
-
-# YAST/Zypper/RPM (SuSE)
--w /sbin/yast -p x -k yast
--w /sbin/yast2 -p x -k yast
--w /bin/rpm -p x -k software_mgmt
--w /usr/bin/zypper -k software_mgmt
 
 # DPKG / APT-GET (Debian/Ubuntu)
 -w /usr/bin/dpkg -p x -k software_mgmt
